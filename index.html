@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Beleg-Scanner – Auslagenbelege</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg:#f5f4f0; --surface:#fff; --surface2:#f0efe9;
+    --border:rgba(0,0,0,.10); --border-s:rgba(0,0,0,.18);
+    --text:#1a1a18; --muted:#6b6b64; --hint:#9e9e96;
+    --green:#1a6b3a; --green-bg:#e6f4ec;
+    --red:#a32d2d; --red-bg:#fcebeb;
+    --amber:#7a4f00; --amber-bg:#fef3dc;
+    --blue:#1a4f8a; --blue-bg:#e6eef8;
+    --r:10px; --rs:6px;
+    --shadow:0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.04);
+  }
+  body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif; background:var(--bg); color:var(--text); min-height:100vh; padding:2rem 1rem; }
+  .wrap { max-width:860px; margin:0 auto; }
+  .hd { margin-bottom:2rem; }
+  .hd-top { display:flex; align-items:center; gap:12px; margin-bottom:6px; }
+  .logo { width:36px; height:36px; background:var(--text); border-radius:var(--rs); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .logo svg { width:20px; height:20px; fill:none; stroke:#fff; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+  h1 { font-size:20px; font-weight:600; letter-spacing:-.3px; }
+  .hd p { font-size:14px; color:var(--muted); margin-left:48px; }
+  .tag-free { display:inline-block; font-size:10px; font-weight:700; padding:2px 7px; border-radius:99px; background:var(--green-bg); color:var(--green); border:1px solid var(--green); margin-left:8px; vertical-align:middle; }
+  .card { background:var(--surface); border:1px solid var(--border); border-radius:var(--r); padding:1.25rem 1.5rem; margin-bottom:1rem; box-shadow:var(--shadow); }
+  .clbl { font-size:11px; font-weight:600; color:var(--hint); text-transform:uppercase; letter-spacing:.07em; margin-bottom:1rem; }
+  .src-row { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:1.25rem; }
+  .src-chip { display:inline-flex; align-items:center; gap:7px; font-size:13px; font-weight:500; padding:6px 12px; border-radius:99px; border:1px solid var(--green); background:var(--green-bg); color:var(--green); text-decoration:none; cursor:pointer; transition:opacity .15s; }
+  .src-chip:hover { opacity:.75; }
+  .src-chip svg { width:14px; height:14px; flex-shrink:0; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+  .frow { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px; }
+  @media(max-width:560px){ .frow { grid-template-columns:1fr; } }
+  .field { display:flex; flex-direction:column; gap:5px; }
+  .field label { font-size:13px; font-weight:500; color:var(--muted); }
+  .field input { height:38px; padding:0 12px; font-size:14px; border:1px solid var(--border-s); border-radius:var(--rs); background:var(--surface); color:var(--text); outline:none; transition:border-color .15s,box-shadow .15s; }
+  .field input:focus { border-color:var(--text); box-shadow:0 0 0 3px rgba(0,0,0,.06); }
+  .field input::placeholder { color:var(--hint); }
+  .fhint { font-size:12px; color:var(--hint); margin-top:2px; }
+  .fhint a { color:var(--blue); text-decoration:none; }
+  .infobox { background:var(--blue-bg); border:1px solid rgba(26,79,138,.2); border-radius:var(--rs); padding:14px 16px; margin-bottom:14px; font-size:13px; color:var(--blue); line-height:1.8; }
+  .infobox strong { font-weight:600; }
+  .infobox a { color:var(--blue); font-weight:600; }
+  .infobox code { background:rgba(26,79,138,.12); padding:1px 5px; border-radius:4px; font-family:monospace; font-size:12px; }
+  .btn-row { display:flex; gap:10px; flex-wrap:wrap; margin-top:1rem; }
+  .btn { border:none; border-radius:var(--rs); padding:9px 20px; font-size:14px; font-weight:500; cursor:pointer; transition:opacity .15s,transform .08s; }
+  .btn:active { transform:scale(.98); }
+  .btn:disabled { opacity:.4; cursor:not-allowed; }
+  .btn-p { background:var(--text); color:#fff; }
+  .btn-p:hover:not(:disabled) { opacity:.85; }
+  .btn-o { background:transparent; color:var(--text); border:1px solid var(--border-s); }
+  .btn-o:hover:not(:disabled) { background:var(--surface2); }
+  .btn-g { background:#4285f4; color:#fff; display:flex; align-items:center; gap:8px; }
+  .btn-g:hover:not(:disabled) { opacity:.9; }
+  .btn-g svg { width:18px; height:18px; }
+  .sbar { display:flex; align-items:flex-start; gap:9px; padding:10px 14px; border-radius:var(--rs); font-size:13px; margin-bottom:1rem; line-height:1.5; }
+  .sbar .dot { width:7px; height:7px; border-radius:50%; background:currentColor; flex-shrink:0; margin-top:4px; }
+  .s-info { background:var(--blue-bg); color:var(--blue); }
+  .s-ok   { background:var(--green-bg); color:var(--green); }
+  .s-err  { background:var(--red-bg); color:var(--red); }
+  .s-warn { background:var(--amber-bg); color:var(--amber); }
+  .pwrap { margin:6px 0 12px; }
+  .ptrack { height:3px; background:var(--border); border-radius:2px; overflow:hidden; }
+  .pfill { height:100%; background:var(--blue); border-radius:2px; transition:width .4s ease; }
+  .plbl { font-size:13px; color:var(--muted); margin-top:7px; }
+  .logbox { background:var(--surface2); border-radius:var(--rs); padding:12px; font-size:12px; font-family:'SF Mono','Fira Code',monospace; color:var(--muted); max-height:200px; overflow-y:auto; line-height:1.7; }
+  .ll { display:flex; gap:10px; }
+  .lt { color:var(--hint); flex-shrink:0; }
+  .log-err { color:var(--red); }
+  .log-ok  { color:var(--green); }
+  .log-warn { color:var(--amber); }
+  .metrics { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:1.25rem; }
+  @media(max-width:560px){ .metrics { grid-template-columns:repeat(2,1fr); } }
+  .metric { background:var(--surface2); border-radius:var(--rs); padding:10px 14px; }
+  .mlbl { font-size:11px; color:var(--hint); margin-bottom:4px; }
+  .mval { font-size:22px; font-weight:600; }
+  .twrap { overflow-x:auto; }
+  table { width:100%; border-collapse:collapse; font-size:13px; table-layout:fixed; }
+  th { text-align:left; font-size:11px; font-weight:600; color:var(--hint); text-transform:uppercase; letter-spacing:.06em; padding:8px 10px; border-bottom:1px solid var(--border); }
+  td { padding:10px; border-bottom:1px solid var(--border); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  tr:last-child td { border-bottom:none; }
+  tr:hover td { background:var(--surface2); }
+  .c1{width:44px} .c2{width:21%} .c3{width:22%} .c4{width:13%} .c5{width:14%} .c6{width:12%;text-align:right}
+  .badge { display:inline-block; font-size:11px; font-weight:600; padding:2px 9px; border-radius:99px; }
+  .b-ok   { background:var(--green-bg); color:var(--green); }
+  .b-skip { background:var(--surface2); color:var(--hint); border:1px solid var(--border); }
+  .b-err  { background:var(--red-bg); color:var(--red); }
+  .b-run  { background:var(--amber-bg); color:var(--amber); }
+  .empty  { text-align:center; padding:2rem; color:var(--hint); font-size:14px; }
+  .tact   { display:flex; gap:10px; flex-wrap:wrap; margin-top:1rem; }
+  .hidden { display:none !important; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="hd">
+    <div class="hd-top">
+      <div class="logo"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M4 9h16M9 9v11"/></svg></div>
+      <h1>Beleg-Scanner <span class="tag-free">KOSTENLOS</span></h1>
+    </div>
+    <p>PDFs aus „Auslagenbelege" mit Gemini KI auswerten → „Auslagen Zap" exportieren</p>
+  </div>
+
+  <div class="card" id="setup-card">
+    <div class="clbl">Einrichtung</div>
+    <div class="infobox">
+      <strong>Gemini API Key</strong> (kostenlos) → <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com/apikey</a><br>
+      <strong>Google OAuth Client-ID</strong> → <a href="https://console.cloud.google.com/apis/credentials" target="_blank">console.cloud.google.com/apis/credentials</a><br>
+      Typ: <code>Web application</code> · Authorized origin: deine Netlify-URL
+    </div>
+    <div class="frow">
+      <div class="field">
+        <label>Gemini API Key</label>
+        <input type="password" id="gemini-key" placeholder="AIzaSy..." autocomplete="off" />
+        <div class="fhint"><a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com/apikey</a></div>
+      </div>
+      <div class="field">
+        <label>Google OAuth Client-ID</label>
+        <input type="text" id="client-id" placeholder="123...apps.googleusercontent.com" autocomplete="off" />
+        <div class="fhint"><a href="https://console.cloud.google.com/apis/credentials" target="_blank">console.cloud.google.com</a></div>
+      </div>
+    </div>
+    <div class="frow" style="margin-bottom:0;">
+      <div class="field">
+        <label>Tabellenblatt-Name</label>
+        <input type="text" id="sheet-name" value="Belege" />
+      </div>
+      <div class="field">
+        <label>Nur Dateien der letzten N Tage (leer = alle)</label>
+        <input type="text" id="filter-days" placeholder="z.B. 30 – leer für alle" />
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-g" id="auth-btn" onclick="signIn()">
+        <svg viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="white"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="rgba(255,255,255,.85)"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="rgba(255,255,255,.7)"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="rgba(255,255,255,.55)"/></svg>
+        Mit Google anmelden &amp; Scan starten
+      </button>
+      <button class="btn btn-o hidden" id="rescan-btn" onclick="startScan()">Erneut scannen</button>
+      <button class="btn btn-o hidden" id="signout-btn" onclick="signOut()">Abmelden</button>
+    </div>
+    <div id="auth-status" style="margin-top:10px;font-size:13px;color:var(--hint);"></div>
+  </div>
+
+  <div class="card hidden" id="sources-card">
+    <div class="clbl">Verknüpfte Quellen</div>
+    <div class="src-row">
+      <a class="src-chip" href="https://drive.google.com/drive/folders/1iklTYbbCVR0zMds46E6pl_CbQChay7AW" target="_blank">
+        <svg viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+        Google Drive – Auslagenbelege
+      </a>
+      <a class="src-chip" href="https://docs.google.com/spreadsheets/d/1JCNpQg_fUVnBupqHeXdq4bj3HDuBvR8lS5Di5W2eFPo/edit" target="_blank">
+        <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>
+        Google Sheets – Auslagen Zap
+      </a>
+    </div>
+  </div>
+
+  <div id="status-area"></div>
+
+  <div class="card hidden" id="progress-card">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
+      <div class="clbl" style="margin-bottom:0;">Verarbeitung</div>
+      <button class="btn btn-o" id="copy-btn" onclick="copyLog()" style="padding:5px 12px;font-size:12px;">Log kopieren</button>
+    </div>
+    <div class="pwrap">
+      <div class="ptrack"><div class="pfill" id="pbar" style="width:0%"></div></div>
+      <div class="plbl" id="plbl">Initialisiere...</div>
+    </div>
+    <div class="logbox" id="log"></div>
+  </div>
+
+  <div class="card hidden" id="results-card">
+    <div class="clbl">Ergebnis</div>
+    <div class="metrics">
+      <div class="metric"><div class="mlbl">Gefunden</div><div class="mval" id="m-found">0</div></div>
+      <div class="metric"><div class="mlbl">Neu exportiert</div><div class="mval" id="m-ok">0</div></div>
+      <div class="metric"><div class="mlbl">Übersprungen</div><div class="mval" id="m-skip">0</div></div>
+      <div class="metric"><div class="mlbl">Fehler</div><div class="mval" id="m-err">0</div></div>
+    </div>
+    <div class="twrap">
+      <table>
+        <thead><tr>
+          <th class="c1">ID</th><th class="c2">Datei</th><th class="c3">Lieferant</th>
+          <th class="c4">Datum</th><th class="c5">Brutto</th><th class="c6">Status</th>
+        </tr></thead>
+        <tbody id="results-body"><tr><td colspan="6" class="empty">Noch keine Ergebnisse</td></tr></tbody>
+      </table>
+    </div>
+    <div class="tact">
+      <button class="btn btn-o" onclick="window.open('https://docs.google.com/spreadsheets/d/1JCNpQg_fUVnBupqHeXdq4bj3HDuBvR8lS5Di5W2eFPo/edit','_blank')">Sheets öffnen ↗</button>
+      <button class="btn btn-o" onclick="window.open('https://drive.google.com/drive/folders/1iklTYbbCVR0zMds46E6pl_CbQChay7AW','_blank')">Drive öffnen ↗</button>
+    </div>
+  </div>
+
+</div>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script>
+// ── Konstanten ────────────────────────────────────────────────────────────────
+const FOLDER_ID  = '1iklTYbbCVR0zMds46E6pl_CbQChay7AW';
+const SHEET_ID   = '1JCNpQg_fUVnBupqHeXdq4bj3HDuBvR8lS5Di5W2eFPo';
+const SCOPES     = 'https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/spreadsheets';
+const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent';
+
+let accessToken = null;
+let tokenClient = null;
+const state = { running:false, results:[], counter:0, existingFiles:new Set() };
+
+// ── Utils ─────────────────────────────────────────────────────────────────────
+const esc = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+function log(msg, type=''){
+  const box = document.getElementById('log');
+  const t = new Date().toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  const d = document.createElement('div');
+  d.className = 'll';
+  d.innerHTML = `<span class="lt">${t}</span><span class="${type?'log-'+type:''}">${esc(msg)}</span>`;
+  box.appendChild(d);
+  box.scrollTop = box.scrollHeight;
+}
+
+function copyLog(){
+  const lines = [...document.getElementById('log').querySelectorAll('.ll')];
+  const text = lines.map(l => l.querySelector('.lt').textContent + '  ' + l.querySelector('span:last-child').textContent).join('\n');
+  navigator.clipboard.writeText(text).then(()=>{
+    const btn = document.getElementById('copy-btn');
+    btn.textContent = 'Kopiert!';
+    setTimeout(()=>{ btn.textContent = 'Log kopieren'; }, 2000);
+  }).catch(()=>{
+    prompt('Log (manuell kopieren):', text);
+  });
+}
+
+function setStatus(type, msg){
+  const cls={ok:'s-ok',err:'s-err',info:'s-info',warn:'s-warn'}[type]||'s-info';
+  document.getElementById('status-area').innerHTML=`<div class="sbar ${cls}"><div class="dot"></div><span>${esc(msg)}</span></div>`;
+}
+function setProgress(pct,label){
+  document.getElementById('pbar').style.width=pct+'%';
+  document.getElementById('plbl').textContent=label;
+}
+function updateMetrics(){
+  document.getElementById('m-found').textContent=state.results.length;
+  document.getElementById('m-ok').textContent=state.results.filter(r=>r.status==='ok').length;
+  document.getElementById('m-skip').textContent=state.results.filter(r=>r.status==='skip').length;
+  document.getElementById('m-err').textContent=state.results.filter(r=>r.status==='error').length;
+}
+function badgeHtml(s){ return {ok:'<span class="badge b-ok">OK</span>',skip:'<span class="badge b-skip">Vorhanden</span>',running:'<span class="badge b-run">läuft…</span>',error:'<span class="badge b-err">Fehler</span>'}[s]||''; }
+function renderRow(row){
+  const tbody=document.getElementById('results-body');
+  if(tbody.querySelector('td[colspan]')) tbody.innerHTML='';
+  const ex=document.getElementById('row-'+row.uid);
+  const html=`<td class="c1">${row.status==='skip'?'—':esc(row.id)}</td><td class="c2" title="${esc(row.filename)}">${esc(row.filename)}</td><td class="c3">${esc(row.supplier||'—')}</td><td class="c4">${esc(row.date||'—')}</td><td class="c5">${esc(row.gross||'—')}</td><td class="c6">${badgeHtml(row.status)}</td>`;
+  if(ex){ ex.innerHTML=html; }
+  else{ const tr=document.createElement('tr'); tr.id='row-'+row.uid; tr.innerHTML=html; tbody.appendChild(tr); }
+  document.getElementById('results-card').classList.remove('hidden');
+}
+
+// ── Auth ──────────────────────────────────────────────────────────────────────
+function initTokenClient(){
+  if(!window.google?.accounts?.oauth2){ setTimeout(initTokenClient,300); return; }
+  const clientId = document.getElementById('client-id').value.trim();
+  if(!clientId){ setStatus('warn','Bitte zuerst die Google OAuth Client-ID eingeben.'); return; }
+  tokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: clientId,
+    scope: SCOPES,
+    callback: resp => {
+      if(resp.error){ setStatus('err','Anmeldung fehlgeschlagen: '+resp.error); return; }
+      accessToken = resp.access_token;
+      onSignedIn();
+    }
+  });
+  tokenClient.requestAccessToken();
+}
+
+function signIn(){
+  const gemKey = document.getElementById('gemini-key').value.trim();
+  const cid    = document.getElementById('client-id').value.trim();
+  if(!gemKey){ setStatus('warn','Bitte zuerst den Gemini API Key eingeben.'); return; }
+  if(!cid)   { setStatus('warn','Bitte zuerst die Google OAuth Client-ID eingeben.'); return; }
+  localStorage.setItem('gemini_key', gemKey);
+  localStorage.setItem('gcp_client_id', cid);
+  initTokenClient();
+}
+
+function onSignedIn(){
+  document.getElementById('auth-status').innerHTML='<span style="color:var(--green)">✓ Mit Google verbunden</span>';
+  document.getElementById('auth-btn').classList.add('hidden');
+  document.getElementById('rescan-btn').classList.remove('hidden');
+  document.getElementById('signout-btn').classList.remove('hidden');
+  document.getElementById('sources-card').classList.remove('hidden');
+  startScan();
+}
+
+function signOut(){
+  if(accessToken) google.accounts.oauth2.revoke(accessToken,()=>{});
+  accessToken=null; tokenClient=null;
+  document.getElementById('auth-status').textContent='Abgemeldet.';
+  document.getElementById('auth-btn').classList.remove('hidden');
+  document.getElementById('rescan-btn').classList.add('hidden');
+  document.getElementById('signout-btn').classList.add('hidden');
+  document.getElementById('sources-card').classList.add('hidden');
+}
+
+window.addEventListener('load',()=>{
+  const k=localStorage.getItem('gemini_key'); if(k) document.getElementById('gemini-key').value=k;
+  const c=localStorage.getItem('gcp_client_id'); if(c) document.getElementById('client-id').value=c;
+});
+
+// ── Drive API ─────────────────────────────────────────────────────────────────
+async function driveGet(url){
+  const r=await fetch(url,{headers:{Authorization:'Bearer '+accessToken}});
+  if(r.status===401) throw new Error('Google-Token abgelaufen — bitte erneut anmelden.');
+  if(!r.ok){
+    let msg = 'Drive API Fehler '+r.status;
+    try{ const j=await r.json(); msg=j.error?.message||msg; }catch(_){}
+    throw new Error(msg);
+  }
+  return r.json();
+}
+
+async function listPdfs(filterDays){
+  let q=`'${FOLDER_ID}' in parents and mimeType='application/pdf' and trashed=false`;
+  if(filterDays){
+    const d=new Date(); d.setDate(d.getDate()-parseInt(filterDays));
+    q+=` and modifiedTime>'${d.toISOString()}'`;
+  }
+  const url=`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id,name,size)&pageSize=200`;
+  const data=await driveGet(url);
+  return data.files||[];
+}
+
+async function pdfToBase64(fileId, filename){
+  log(`  Lade "${filename}" herunter…`);
+  const r=await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,{
+    headers:{Authorization:'Bearer '+accessToken}
+  });
+  if(r.status===401) throw new Error('Token abgelaufen.');
+  if(!r.ok){
+    let msg='Download Fehler '+r.status;
+    try{ const j=await r.json(); msg=j.error?.message||msg; }catch(_){}
+    throw new Error(msg);
+  }
+  const blob=await r.blob();
+  const sizeMB=(blob.size/1024/1024).toFixed(1);
+  log(`  Datei heruntergeladen (${sizeMB} MB), sende an Gemini…`);
+  if(blob.size > 20*1024*1024){
+    throw new Error(`Datei zu groß für Gemini (${sizeMB} MB, max 20 MB)`);
+  }
+  return new Promise((res,rej)=>{
+    const rd=new FileReader();
+    rd.onload=()=>res(rd.result.split(',')[1]);
+    rd.onerror=()=>rej(new Error('FileReader fehlgeschlagen'));
+    rd.readAsDataURL(blob);
+  });
+}
+
+// ── Sheets API ────────────────────────────────────────────────────────────────
+async function sheetsReq(method,path,body){
+  const r=await fetch('https://sheets.googleapis.com/v4/spreadsheets/'+path,{
+    method,
+    headers:{Authorization:'Bearer '+accessToken,'Content-Type':'application/json'},
+    body:body?JSON.stringify(body):undefined
+  });
+  if(r.status===401) throw new Error('Google-Token abgelaufen.');
+  if(!r.ok){
+    let msg='Sheets API Fehler '+r.status;
+    try{ const j=await r.json(); msg=j.error?.message||msg; }catch(_){}
+    throw new Error(msg);
+  }
+  return r.json();
+}
+
+async function getCol(sheet,col){
+  try{
+    const enc=encodeURIComponent(`${sheet}!${col}`);
+    const d=await sheetsReq('GET',`${SHEET_ID}/values/${enc}`);
+    return d.values||[];
+  }catch(_){ return []; }
+}
+
+async function appendRow(sheet,vals){
+  const enc=encodeURIComponent(`${sheet}!A:E`);
+  await sheetsReq('POST',`${SHEET_ID}/values/${enc}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`,{
+    values:[vals]
+  });
+}
+
+async function ensureHeader(sheet){
+  const v=await getCol(sheet,'A1:A1');
+  if(v.length&&v[0][0]==='ID') return;
+  const enc=encodeURIComponent(`${sheet}!A1:E1`);
+  await sheetsReq('PUT',`${SHEET_ID}/values/${enc}?valueInputOption=USER_ENTERED`,{
+    values:[['ID','Lieferant','Datum','Bruttopreis','Dateiname']]
+  });
+  log('Kopfzeile angelegt.');
+}
+
+// ── Gemini ────────────────────────────────────────────────────────────────────
+async function extractFromPdf(b64, filename){
+  const key=document.getElementById('gemini-key').value.trim();
+  if(!key) throw new Error('Kein Gemini API Key.');
+
+  const body={
+    contents:[{parts:[
+      {inline_data:{mime_type:'application/pdf', data:b64}},
+      {text:`Du analysierst einen deutschen Beleg oder eine Rechnung als PDF-Datei.
+
+Extrahiere genau diese 3 Felder:
+1. lieferant: Name des Unternehmens das die Rechnung ausgestellt hat (Rechnungssteller, nicht der Empfänger)
+2. datum: Rechnungsdatum im Format DD.MM.YYYY
+3. bruttopreis: Gesamtbetrag inkl. MwSt als String mit Währungssymbol (z.B. "119,00 €" oder "99.50 EUR")
+
+Antworte AUSSCHLIESSLICH mit einem JSON-Objekt, ohne Erklärungen, ohne Markdown-Backticks, ohne weiteren Text:
+{"lieferant":"...","datum":"...","bruttopreis":"..."}
+
+Falls ein Wert wirklich nicht erkennbar ist, schreibe null statt eines leeren Strings.`}
+    ]}],
+    generationConfig:{temperature:0, maxOutputTokens:300}
+  };
+
+  const r=await fetch(`${GEMINI_URL}?key=${key}`,{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify(body)
+  });
+
+  if(!r.ok){
+    let msg='Gemini Fehler '+r.status;
+    try{ const j=await r.json(); msg=j.error?.message||msg; }catch(_){}
+    throw new Error(msg);
+  }
+
+  const data=await r.json();
+
+  // Prüfe ob Gemini blockiert hat
+  const reason=data.candidates?.[0]?.finishReason;
+  if(reason && reason!=='STOP'){
+    throw new Error('Gemini hat Antwort blockiert: '+reason);
+  }
+
+  const text=data.candidates?.[0]?.content?.parts?.[0]?.text;
+  if(!text) throw new Error('Gemini hat leere Antwort zurückgegeben. Response: '+JSON.stringify(data).substring(0,200));
+
+  log(`  Gemini Antwort: ${text.substring(0,120)}`);
+
+  // JSON parsen — robust
+  const clean=text.replace(/```json|```/g,'').trim();
+  try{ return JSON.parse(clean); }
+  catch(_){
+    const m=clean.match(/\{[\s\S]*?\}/);
+    if(m){
+      try{ return JSON.parse(m[0]); }
+      catch(e2){ throw new Error('JSON-Parse fehlgeschlagen: '+m[0].substring(0,100)); }
+    }
+    throw new Error('Kein JSON in Gemini-Antwort gefunden: '+clean.substring(0,100));
+  }
+}
+
+// ── Scan ──────────────────────────────────────────────────────────────────────
+async function startScan(){
+  if(state.running||!accessToken) return;
+  const sheet=document.getElementById('sheet-name').value.trim()||'Belege';
+  const days=document.getElementById('filter-days').value.trim();
+
+  state.running=true; state.results=[]; state.counter=0; state.existingFiles=new Set();
+  document.getElementById('rescan-btn').disabled=true;
+  document.getElementById('progress-card').classList.remove('hidden');
+  document.getElementById('results-body').innerHTML='<tr><td colspan="6" class="empty">Noch keine Ergebnisse</td></tr>';
+  document.getElementById('log').innerHTML='';
+  setStatus('info','Scan läuft…');
+  setProgress(0,'Starte…');
+
+  try{
+    // 1. Bestehende Einträge lesen
+    log('Lese vorhandene Einträge aus "'+sheet+'"…');
+    setProgress(5,'Prüfe bestehende Einträge…');
+    const eRows=await getCol(sheet,'E2:E10000');
+    eRows.forEach(r=>{ if(r[0]) state.existingFiles.add(String(r[0]).trim()); });
+    log(state.existingFiles.size+' vorhandene Einträge gefunden.');
+
+    // 2. Höchste ID
+    const idRows=await getCol(sheet,'A2:A10000');
+    let nextId=1;
+    if(idRows.length){
+      const ids=idRows.map(r=>parseInt(r[0])).filter(n=>!isNaN(n));
+      if(ids.length) nextId=Math.max(...ids)+1;
+    }
+    state.counter=nextId-1;
+    log('Nächste ID: '+nextId);
+
+    // 3. PDFs listen
+    log('Suche PDFs in "Auslagenbelege"…');
+    setProgress(15,'Suche PDFs in Drive…');
+    const files=await listPdfs(days);
+    log(files.length+' PDF(s) gefunden.', files.length>0?'ok':'warn');
+
+    if(!files.length){
+      setStatus('warn','Keine PDFs im Ordner gefunden.');
+      state.running=false; document.getElementById('rescan-btn').disabled=false; return;
+    }
+
+    // PDFs auflisten
+    files.forEach(f=>log(`  · ${f.name} (${f.size?Math.round(f.size/1024)+' KB':'Größe unbekannt'})`));
+    setProgress(20,files.length+' PDFs – prüfe Kopfzeile…');
+
+    // 4. Kopfzeile
+    await ensureHeader(sheet);
+
+    // 5. Jedes PDF
+    for(let i=0;i<files.length;i++){
+      const file=files[i];
+      const uid='f'+i;
+      setProgress(20+Math.round((i/files.length)*75),'Verarbeite '+(i+1)+'/'+files.length+': '+file.name);
+
+      // Deduplizierung
+      if(state.existingFiles.has(file.name.trim())){
+        log('↷ Übersprungen (bereits vorhanden): '+file.name,'warn');
+        state.results.push({uid,id:'—',filename:file.name,supplier:'',date:'',gross:'',status:'skip'});
+        renderRow(state.results[state.results.length-1]); updateMetrics(); continue;
+      }
+
+      state.results.push({uid,id:'?',filename:file.name,supplier:'',date:'',gross:'',status:'running'});
+      renderRow(state.results[state.results.length-1]);
+      log('→ Verarbeite: '+file.name);
+
+      try{
+        // PDF herunterladen
+        const b64=await pdfToBase64(file.id, file.name);
+
+        // Gemini extrahiert
+        const ex=await extractFromPdf(b64, file.name);
+
+        const supplier = (ex.lieferant && ex.lieferant!=='null') ? ex.lieferant : 'Nicht erkannt';
+        const date     = (ex.datum     && ex.datum!=='null')     ? ex.datum     : 'Nicht erkannt';
+        const gross    = (ex.bruttopreis && ex.bruttopreis!=='null') ? ex.bruttopreis : 'Nicht erkannt';
+
+        // In Sheets schreiben
+        state.counter++;
+        log(`  Schreibe Zeile ${state.counter} in Sheets…`);
+        await appendRow(sheet,[state.counter, supplier, date, gross, file.name]);
+
+        log(`✓ ${file.name} → ${supplier} | ${date} | ${gross}`, 'ok');
+        state.existingFiles.add(file.name.trim());
+        const idx=state.results.findIndex(r=>r.uid===uid);
+        state.results[idx]={uid,id:state.counter,filename:file.name,supplier,date,gross,status:'ok'};
+        renderRow(state.results[idx]);
+
+      }catch(fileErr){
+        log(`✗ Fehler bei "${file.name}": ${fileErr.message}`, 'err');
+        const idx=state.results.findIndex(r=>r.uid===uid);
+        state.results[idx]={uid,id:'—',filename:file.name,supplier:'Fehler',date:'',gross:'',status:'error'};
+        renderRow(state.results[idx]);
+      }
+
+      updateMetrics();
+      // Kurze Pause damit Gemini nicht überlastet wird
+      await new Promise(r=>setTimeout(r,500));
+    }
+
+    setProgress(100,'Fertig!');
+    const ok=state.results.filter(r=>r.status==='ok').length;
+    const skip=state.results.filter(r=>r.status==='skip').length;
+    const err=state.results.filter(r=>r.status==='error').length;
+
+    if(err>0 && ok===0){
+      setStatus('err',`Alle ${err} Dateien fehlgeschlagen — bitte Log prüfen.`);
+    } else {
+      setStatus('ok',`Abgeschlossen: ${ok} neu exportiert, ${skip} übersprungen${err?' ('+err+' Fehler)':''}.`);
+    }
+    log(`Fertig. ${ok} neu | ${skip} übersprungen | ${err} Fehler.`, ok>0?'ok':'warn');
+
+  }catch(err){
+    setStatus('err','Kritischer Fehler: '+err.message);
+    log('KRITISCH: '+err.message, 'err');
+    console.error(err);
+  }
+
+  state.running=false;
+  document.getElementById('rescan-btn').disabled=false;
+}
+</script>
+</body>
+</html>
